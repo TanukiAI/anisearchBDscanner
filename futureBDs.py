@@ -2,12 +2,15 @@ import datetime
 import re
 import time
 import json
+
+import pyperclip
 import requests
 import argparse
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--from", help="yyyy-mm-dd")
 parser.add_argument("--to", help="yyyy-mm-dd")
+parser.add_argument("--update", action="store_true")
 parser.add_argument("--days", type=int, default=365)
 args = parser.parse_args()
 
@@ -42,3 +45,25 @@ with open("data.json", "w", encoding="utf-8") as f:
 with open("bds.txt", "w", encoding="utf-8") as f:
     for j in data:
         f.write(f"{j['datum']}\t{j['name']}\t{j['id']}\n")
+
+if args.update:
+    blacklist_pid = ["120073", "119095", "124509", "115478", "109314"]
+    clipboard = pyperclip.paste()
+    clipboard_dict = {}
+    for i in clipboard.splitlines():
+        i = i.split("\t", 3)
+        clipboard_dict[i[2]] = {"datum": i[0], "id": i[2], "name": i[1], "comment": i[3]}
+    for i in data:
+        if i["id"] in blacklist_pid:
+            continue
+        if i["id"] in clipboard_dict:
+            clipboard_dict[i["id"]]["datum"] = i["datum"]
+            clipboard_dict[i["id"]]["name"] = i["name"]
+        else:
+            clipboard_dict[i["id"]] = {"datum": i["datum"], "id": i["id"], "name": i["name"], "comment": "FALSE"}
+
+    copy = ""
+    for i in clipboard_dict:
+        copy += f'{clipboard_dict[i]["datum"]}\t{clipboard_dict[i]["name"]}\t{clipboard_dict[i]["id"]}\t{clipboard_dict[i]["comment"]}\n'
+    pyperclip.copy(copy)
+    print("FALSE/TRUE zu Checkboxen umwandeln: https://infoinspired.com/wp-content/uploads/2018/10/convert-true-false-to-tick-box.gif")
