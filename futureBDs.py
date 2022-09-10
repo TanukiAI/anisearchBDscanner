@@ -19,7 +19,9 @@ s.headers.update({"User-Agent": "Mozilla/5.0 (Windows NT 10.0; WOW64; x64; rv:10
 anisearch_regex = r"""<a class="merchandise-item pointer" href=".*?" data-id="(.*?)" data-bg=".*?" title="(.*?)" rel="nofollow" target="_blank"><span class="gradient"><span class="details"><span class="title">.*?</span><span class="company">(.*?)</span>"""
 anisearch_url = r"https://www.anisearch.de/merchandise/page-{page}?char=all&sort=date&order=asc&text=&date=99&startDate={dateFrom}&endDate={dateTo}&category=1&medium=2,4" # bd
 #anisearch_url = r"https://www.anisearch.de/merchandise/page-{page}?char=all&sort=date&order=asc&text=&date=99&startDate={dateFrom}&endDate=2{dateTo}&category=1&medium=1" # dvd
-dateFrom = datetime.date.today().strftime("%Y-%m-%d")
+
+#dateFrom = (datetime.date.today() - datetime.timedelta(days=14)).strftime("%Y-%m-%d")
+dateFrom = (datetime.date.today().replace(day=1) - datetime.timedelta(days=1)).replace(day=1).strftime("%Y-%m-%d")
 dateTo = (datetime.date.today() + datetime.timedelta(days=args.days)).strftime("%Y-%m-%d")
 data = []
 
@@ -37,7 +39,7 @@ while True:
     if len(reed) != 40:
         break
     page += 1
-    time.sleep(5)
+    time.sleep(3)
 
 with open("data.json", "w", encoding="utf-8") as f:
     f.write(json.dumps(data, indent=2))
@@ -58,25 +60,38 @@ def __locale_change(string: str):
 
 def parse_time(time_str):
     time_str = __locale_change(time_str)
-    return int(datetime.datetime.strptime(time_str, r"%B %Y" if time_str.count(" ") == 1 else r"%d. %B %Y").timestamp())
+    if " " in time_str:
+        return int(datetime.datetime.strptime(time_str, r"%B %Y" if time_str.count(" ") == 1 else r"%d. %B %Y").timestamp())
+    return int(datetime.datetime.strptime(time_str, r"%m.%Y" if time_str.count(".") == 1 else r"%d.%m.%Y").timestamp())
 
+
+def better_time(time_str):
+    time_str = __locale_change(time_str)
+    time_str = parse_time(time_str) + 86400
+    return datetime.datetime.utcfromtimestamp(time_str).strftime('%d.%m.%Y')
+
+def get_month(time_str):#
+    return datetime.datetime.utcfromtimestamp(time_str + 86400).strftime('%m')
 
 if args.update:
     blacklist_pid = ["120073", "119095", "124509", "115478", "109314"]
     clipboard = pyperclip.paste()
     clipboard_dict = {}
+    month = None
     for i in clipboard.splitlines():
         i = i.split("\t", 3)
-        clipboard_dict[i[2]] = {"datum": i[0], "id": i[2], "name": i[1], "comment": i[3], "unix": parse_time(i[0])}
+        if i[0]:
+            clipboard_dict[i[2]] = {"datum": i[0], "id": i[2], "name": i[1], "comment": i[3], "unix": parse_time(i[0]), "betterdatum": better_time(i[0])}
     for i in data:
         if i["id"] in blacklist_pid:
             continue
         if i["id"] in clipboard_dict:
             clipboard_dict[i["id"]]["datum"] = i["datum"]
-            clipboard_dict[i["id"]]["name"] = i["name"]
+            #clipboard_dict[i["id"]]["name"] = i["name"]
             clipboard_dict[i["id"]]["unix"] = parse_time(i["datum"])
+            clipboard_dict[i["id"]]["betterdatum"] = better_time(i["datum"])
         else:
-            clipboard_dict[i["id"]] = {"datum": i["datum"], "id": i["id"], "name": i["name"], "comment": "FALSE", "unix": parse_time(i["datum"])}
+            clipboard_dict[i["id"]] = {"datum": i["datum"], "id": i["id"], "name": i["name"], "comment": "FALSE", "unix": parse_time(i["datum"]), "betterdatum": better_time(i["datum"])}
 
     sort_dict = {}
     for i in clipboard_dict:
@@ -87,7 +102,14 @@ if args.update:
 
     copy = ""
     for i in sorted(sort_dict):
+        _month = get_month(i)
+        if month is None:
+            month = _month
+        elif month != _month:
+            month = _month
+            copy += "\n"
+
         for j in sort_dict[i]:
-            copy += f'{clipboard_dict[j]["datum"]}\t{clipboard_dict[j]["name"]}\t{clipboard_dict[j]["id"]}\t{clipboard_dict[j]["comment"]}\n'
+            copy += f'{clipboard_dict[j]["betterdatum"]}\t{clipboard_dict[j]["name"]}\t{clipboard_dict[j]["id"]}\t{clipboard_dict[j]["comment"]}\n'
     pyperclip.copy(copy)
     print("FALSE/TRUE zu Checkboxen umwandeln: https://infoinspired.com/wp-content/uploads/2018/10/convert-true-false-to-tick-box.gif")
