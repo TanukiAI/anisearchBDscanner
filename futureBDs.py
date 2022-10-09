@@ -1,4 +1,5 @@
 import datetime
+import os
 import re
 import time
 import json
@@ -11,6 +12,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--from", help="yyyy-mm-dd")
 parser.add_argument("--to", help="yyyy-mm-dd")
 parser.add_argument("--update", action="store_true")
+parser.add_argument("--debug", action="store_true")
 parser.add_argument("--days", type=int, default=365)
 args = parser.parse_args()
 
@@ -72,15 +74,32 @@ def better_time(time_str):
 
 def get_month(time_str):#
     return datetime.datetime.utcfromtimestamp(time_str + 86400).strftime('%m')
-
-if args.update:
-    blacklist_pid = ["120073", "119095", "124509", "115478", "109314"]
+def get_month_full(time_str):#
+    months = {
+        "1": "Januar",
+        "2": "Februar",
+        "3": "März",
+        "4": "April",
+        "5": "Mai",
+        "6": "Juni",
+        "7": "Juli",
+        "8": "August",
+        "9": "September",
+        "10": "Oktober",
+        "11": "November",
+        "12": "Dezember",
+    }
+    return months[str(datetime.datetime.utcfromtimestamp(time_str + 86400).month)]
+if args.debug:
+    pyperclip.copy(json.dumps(data, indent=2))
+elif args.update:
+    blacklist_pid = ["120073", "119095", "124509", "115478", "109314", "125632"]
     clipboard = pyperclip.paste()
     clipboard_dict = {}
     month = None
     for i in clipboard.splitlines():
         i = i.split("\t", 3)
-        if i[0]:
+        if i[0] and i[1]:
             clipboard_dict[i[2]] = {"datum": i[0], "id": i[2], "name": i[1], "comment": i[3], "unix": parse_time(i[0]), "betterdatum": better_time(i[0])}
     for i in data:
         if i["id"] in blacklist_pid:
@@ -107,7 +126,7 @@ if args.update:
             month = _month
         elif month != _month:
             month = _month
-            copy += "\n"
+            copy += f"\n{get_month_full(i)}\n"
 
         for j in sort_dict[i]:
             copy += f'{clipboard_dict[j]["betterdatum"]}\t{clipboard_dict[j]["name"]}\t{clipboard_dict[j]["id"]}\t{clipboard_dict[j]["comment"]}\n'
